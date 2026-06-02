@@ -16,28 +16,32 @@
 // include the library
 #include <RadioLib.h>
 
-#include "EspHal.h"
-#include "lorawan_config.h"
+#include "EspHal.hpp"
+#include "lorawan_config.hpp"
+#include "packet.h"
 
-static const char* TAG = "main";
+static const char* TAG = "lorawan";
+
+QueueHandle_t packet_queue;
 
 // the entry point for the program
 // it must be declared as "extern C" because the compiler assumes this will be a
 // C function
-extern "C" void app_main(void) {
-    hal->pinMode(SOC_GPIO_PIN_RST, hal->GpioModeOutput);
-    hal->digitalWrite(SOC_GPIO_PIN_RST, hal->GpioLevelLow);
-    hal->delay(2000);
-    // initialize just like with Arduino
-    ESP_LOGI(TAG, "[SX1262] Initializing ... ");
+extern "C" void lorawan_task(void) {
+    ESP_LOGI(TAG, "Initializing ... ");
+
+    packet_queue = xQueueCreate(64, sizeof(struct packet));
+    if (packet_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create packet queue");
+        vTaskDelay(portMAX_DELAY);
+    }
+
     ConfigLoRa_t config;
     config.frequency = 915;
     int state = radio.begin(config);
     if (state != RADIOLIB_ERR_NONE) {
-        ESP_LOGI(TAG, "failed, code %d\n", state);
-        while (true) {
-            hal->delay(1000);
-        }
+        ESP_LOGE(TAG, "failed, code %d\n", state);
+        vTaskDelay(portMAX_DELAY);
     }
     ESP_LOGI(TAG, "success!\n");
 
@@ -62,8 +66,6 @@ extern "C" void app_main(void) {
 
     node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
 
-    hal->delay(5000);
-
     // loop forever
     for (;;) {
         if (!node.isActivated()) {
@@ -71,47 +73,49 @@ extern "C" void app_main(void) {
             state = node.activateOTAA();
             if (state != RADIOLIB_LORAWAN_NEW_SESSION) {
                 ESP_LOGI(TAG, "Join failed - (%d)\n", state);
-                hal->delay(uplinkIntervalSeconds * 1000UL);
+                vTaskDelay(pdMS_TO_TICKS(uplinkIntervalMs));
                 continue;
+            } else {
+                ESP_LOGI(TAG, "Join successful!");
             }
 
             node.setADR(false);
             // Up the datarate to reduce airtime
-            // Should allow us 4 hours before we start hitting the TTN FUP limits
+            // Should give us 3.8 hours of runtime before we start hitting the
+            // TTN FUP limits
             node.setDatarate(4);
         }
 
-        ESP_LOGI(TAG, "Sending uplink");
+        uint8_t uplinkPayload[sizeof(struct packet)];
+        const size_t uplinkPayloadSize = sizeof(struct packet);
+        if (xQueueReceive(packet_queue, &uplinkPayload,
+                          pdMS_TO_TICKS(uplinkIntervalMs)) == pdTRUE) {
+            ESP_LOGI(TAG, "Sending uplink");
 
-        // This is the place to gather the sensor inputs
-        // Instead of reading any real sensor, we just generate some random
-        // numbers as example
-        uint8_t value1 = radio.random(100);
-        uint16_t value2 = radio.random(2000);
+            struct packet* pkt = (struct packet*)uplinkPayload;
 
-        // Build payload byte array
-        uint8_t uplinkPayload[3];
-        uplinkPayload[0] = value1;
-        uplinkPayload[1] = value2 >> 8; // See notes for high/lowByte functions
-        uplinkPayload[2] = value2 & 0xFF;
+            // Perform an uplink
+            int16_t state = node.sendReceive(uplinkPayload, uplinkPayloadSize);
+            if (state < RADIOLIB_ERR_NONE) {
+                ESP_LOGI(TAG, "Error in sendReceive - (%d)\n", state);
+            }
 
-        // Perform an uplink
-        int16_t state = node.sendReceive(uplinkPayload, sizeof(uplinkPayload));
-        if (state != RADIOLIB_ERR_NONE) {
-            ESP_LOGI(TAG, "Error in sendReceive - (%d)\n", state);
-        }
+            /*
+            // Check if a downlink was received
+            // (state 0 = no downlink, state 1/2 = downlink in window Rx1/Rx2)
+            if (state > 0) {
+                ESP_LOGI(TAG, "Received a downlink");
+            } else {
+                ESP_LOGI(TAG, "No downlink received");
+            }
+            */
 
-        // Check if a downlink was received
-        // (state 0 = no downlink, state 1/2 = downlink in window Rx1/Rx2)
-        if (state > 0) {
-            ESP_LOGI(TAG, "Received a downlink");
+            ESP_LOGI(TAG, "Next uplink in %d seconds", uplinkIntervalSeconds);
         } else {
-            ESP_LOGI(TAG, "No downlink received");
+            ESP_LOGI(TAG, "No data to send");
         }
-
-        ESP_LOGI(TAG, "Next uplink in %d seconds", uplinkIntervalSeconds);
 
         // Wait until next uplink - observing legal & TTN FUP constraints
-        hal->delay(uplinkIntervalSeconds * 1000UL); // delay needs milli-seconds
+        vTaskDelay(pdMS_TO_TICKS(uplinkIntervalMs));
     }
 }

@@ -2,11 +2,12 @@
 
 #include "board_pins.h"
 
+#define SOC_GPIO_PIN_LED1       21
+
 #define SOC_GPIO_PIN_GNSS_RST   D2
 #define SOC_GPIO_PIN_GNSS_WAKE  D0
 #define SOC_GPIO_PIN_GNSS_RX    D6
 #define SOC_GPIO_PIN_GNSS_TX    D7
-#define SOC_GPIO_PIN_LED1       21
 
 /* SPI2 */
 #define SOC_GPIO_PIN_MOSI       D10
@@ -23,4 +24,4 @@
 #define SOC_GPIO_PIN_ANT_RXTX   38 // Tx = HIGH, Rx = LOW
 #define SOC_GPIO_PIN_LED2       48
 
-#define GPS_BAUDRATE            115200
+#define GPS_BAUDRATE            9600

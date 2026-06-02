@@ -2,7 +2,7 @@
 #define _RADIOLIB_EX_LORAWAN_CONFIG_H
 
 #include <RadioLib.h>
-#include "EspHal.h"
+#include "EspHal.hpp"
 #include "board_config.h"
 
 // create a new instance of the HAL class
@@ -14,6 +14,7 @@ SX1262 radio = new Module(hal, SOC_GPIO_PIN_SS, SOC_GPIO_PIN_DIO1, SOC_GPIO_PIN_
 
 // how often to send an uplink - consider legal & FUP constraints - see notes
 const uint32_t uplinkIntervalSeconds = 1UL * 60UL;    // minutes x seconds
+const uint64_t uplinkIntervalMs = uplinkIntervalSeconds * 1000ULL;
 
 // joinEUI - previous versions of LoRaWAN called this AppEUI
 // for development purposes you can use all zeros - see wiki for details
