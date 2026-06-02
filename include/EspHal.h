@@ -183,7 +183,7 @@ class EspHal : public RadioLibHal {
             .input_delay_ns = 0,
             .sample_point = SPI_SAMPLING_POINT_PHASE_0,
             .spics_io_num = -1,
-            .flags = SPI_DEVICE_TXBIT_LSBFIRST | SPI_DEVICE_RXBIT_LSBFIRST,
+            .flags = 0,
             .queue_size = 1,
             .pre_cb = NULL,
             .post_cb = NULL};
@@ -193,12 +193,6 @@ class EspHal : public RadioLibHal {
     void spiBeginTransaction() {
         // not needed - in ESP32 Arduino core, this function
         // repeats clock div, mode and bit order configuration
-    }
-
-    uint8_t spiTransferByte(uint8_t tx) {
-        uint8_t rx;
-        this->spiTransfer(&tx, 1, &rx);
-        return (rx);
     }
 
     void spiTransfer(uint8_t* out, size_t len, uint8_t* in) {
