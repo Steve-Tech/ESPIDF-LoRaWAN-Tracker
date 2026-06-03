@@ -59,7 +59,7 @@ extern "C" void lorawan_task(void) {
     node.setDutyCycle(true, 1250);
 
     // Update dwell time limits - 400ms is the limit for the US
-    node.setDwellTime(true, 400);
+    // node.setDwellTime(true, 400); // Not needed for AU
 
     // Externally powered
     node.setDeviceStatus(0);
@@ -81,18 +81,30 @@ extern "C" void lorawan_task(void) {
 
             node.setADR(false);
             // Up the datarate to reduce airtime
-            // Should give us 3.8 hours of runtime before we start hitting the
+            // Should give us 4 hours of runtime before we start hitting the
             // TTN FUP limits
             node.setDatarate(4);
+
+            // Doing this manually, as the count is per 24 hours
+            node.setDutyCycle(false, 0);
         }
+
+        TickType_t currentTicks = xTaskGetTickCount();
+        // Add an extra minute every hour
+        TickType_t additionalTicks =
+            (currentTicks / pdMS_TO_TICKS(3600'000)) * pdMS_TO_TICKS(60'000);
+        // Cap at 8 minutes
+        if (additionalTicks > pdMS_TO_TICKS(8 * 60'000)) {
+            additionalTicks = pdMS_TO_TICKS(8 * 60'000);
+        }
+        TickType_t ticksToWait =
+            pdMS_TO_TICKS(uplinkIntervalMs) + additionalTicks;
 
         uint8_t uplinkPayload[sizeof(struct packet)];
         const size_t uplinkPayloadSize = sizeof(struct packet);
-        if (xQueueReceive(packet_queue, &uplinkPayload,
-                          pdMS_TO_TICKS(uplinkIntervalMs)) == pdTRUE) {
+        if (xQueueReceive(packet_queue, &uplinkPayload, ticksToWait) ==
+            pdTRUE) {
             ESP_LOGI(TAG, "Sending uplink");
-
-            struct packet* pkt = (struct packet*)uplinkPayload;
 
             // Perform an uplink
             int16_t state = node.sendReceive(uplinkPayload, uplinkPayloadSize);
@@ -115,7 +127,7 @@ extern "C" void lorawan_task(void) {
             ESP_LOGI(TAG, "No data to send");
         }
 
-        // Wait until next uplink - observing legal & TTN FUP constraints
-        vTaskDelay(pdMS_TO_TICKS(uplinkIntervalMs));
+        // Wait until next uplink
+        xTaskDelayUntil(&currentTicks, ticksToWait);
     }
 }
