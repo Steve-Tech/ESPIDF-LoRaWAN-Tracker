@@ -33,7 +33,7 @@ extern "C" void lorawan_task(void) {
     packet_queue = xQueueCreate(64, sizeof(struct packet));
     if (packet_queue == NULL) {
         ESP_LOGE(TAG, "Failed to create packet queue");
-        vTaskDelay(portMAX_DELAY);
+        abort();
     }
 
     ConfigLoRa_t config;
@@ -41,7 +41,7 @@ extern "C" void lorawan_task(void) {
     int state = radio.begin(config);
     if (state != RADIOLIB_ERR_NONE) {
         ESP_LOGE(TAG, "failed, code %d\n", state);
-        vTaskDelay(portMAX_DELAY);
+        abort();
     }
     ESP_LOGI(TAG, "success!\n");
 

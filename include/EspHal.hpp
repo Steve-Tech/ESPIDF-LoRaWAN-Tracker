@@ -12,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hal/gpio_hal.h"
+#include "esp_rom_sys.h"
 #include "soc/dport_reg.h"
 #include "soc/rtc.h"
 #include "soc/spi_reg.h"
@@ -112,20 +113,7 @@ class EspHal : public RadioLibHal {
 
     void delay(unsigned long ms) override { vTaskDelay(pdMS_TO_TICKS(ms)); }
 
-    void delayMicroseconds(unsigned long us) override {
-        uint64_t m = (uint64_t)esp_timer_get_time();
-        if (us) {
-            uint64_t e = (m + us);
-            if (m > e) { // overflow
-                while ((uint64_t)esp_timer_get_time() > e) {
-                    NOP();
-                }
-            }
-            while ((uint64_t)esp_timer_get_time() < e) {
-                NOP();
-            }
-        }
-    }
+    void delayMicroseconds(unsigned long us) override { esp_rom_delay_us(us); }
 
     unsigned long millis() override {
         return ((unsigned long)(esp_timer_get_time() / 1000ULL));
@@ -164,7 +152,8 @@ class EspHal : public RadioLibHal {
                                    .data6_io_num = -1,
                                    .data7_io_num = -1,
                                    .data_io_default_level = 0,
-                                   .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
+                                   .max_transfer_sz =
+                                       SOC_SPI_MAXIMUM_BUFFER_SIZE,
                                    .flags = 0,
                                    .isr_cpu_id = ESP_INTR_CPU_AFFINITY_AUTO,
                                    .intr_flags = 0};
@@ -179,7 +168,7 @@ class EspHal : public RadioLibHal {
             .duty_cycle_pos = 128,
             .cs_ena_pretrans = 0,
             .cs_ena_posttrans = 0,
-            .clock_speed_hz = 2000000,
+            .clock_speed_hz = SPI_MASTER_FREQ_8M,
             .input_delay_ns = 0,
             .sample_point = SPI_SAMPLING_POINT_PHASE_0,
             .spics_io_num = -1,
@@ -191,8 +180,7 @@ class EspHal : public RadioLibHal {
     }
 
     void spiBeginTransaction() {
-        // not needed - in ESP32 Arduino core, this function
-        // repeats clock div, mode and bit order configuration
+        spi_device_acquire_bus(this->spi_device_handle, portMAX_DELAY);
     }
 
     void spiTransfer(uint8_t* out, size_t len, uint8_t* in) {
@@ -211,7 +199,7 @@ class EspHal : public RadioLibHal {
     }
 
     void spiEndTransaction() {
-        // nothing needs to be done here
+        spi_device_release_bus(this->spi_device_handle);
     }
 
     void spiEnd() {
