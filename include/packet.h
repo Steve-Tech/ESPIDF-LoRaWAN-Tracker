@@ -11,7 +11,7 @@ struct packet {
     uint32_t timestamp;
 
     // -- byte 4 --
-    // 2°C (0 to 63°C)
+    // 2°C steps (0 to 63°C)
     uint8_t temperature : 5;
 
     // -90-90 mapped to LATITUDE_MIN-LATITUDE_MAX

@@ -16,7 +16,7 @@ function decodeUplink(input) {
     data.time = input.bytes[i++] | input.bytes[i++] << 8 | input.bytes[i++] << 16 | input.bytes[i++] << 24;
     data.time = new Date(data.time * 1000).toISOString();
 
-    data.temperature = (input.bytes[i] & 0x1f) << 1;
+    data.temp1 = (input.bytes[i] & 0x1f) << 1;
 
     data.latitude = input.bytes[i++] >> 5 | (input.bytes[i++] << 3) | (input.bytes[i++] << 11) | (input.bytes[i] & 0x03) << 19;
     data.latitude = map(data.latitude, LATITUDE_MIN, LATITUDE_MAX, -90, 90);
@@ -29,9 +29,9 @@ function decodeUplink(input) {
         data.altitude = -((~data.altitude + 1) & 0x7fff);
     }
 
-    data.course = input.bytes[i++] | (input.bytes[i] & 0x01) << 8;
+    data.heading = input.bytes[i++] | (input.bytes[i] & 0x01) << 8;
     data.speed = ((input.bytes[i++] >> 1) | (input.bytes[i] & 0x07) << 7) / 10;
-    data.sats_in_use = input.bytes[i++] >> 4;
+    data.sats = input.bytes[i++] >> 4;
     data.hdop = input.bytes[i] / 10;
 
     return {
