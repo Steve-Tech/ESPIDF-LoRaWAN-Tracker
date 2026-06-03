@@ -1,4 +1,5 @@
 #include <driver/gpio.h>
+#include <driver/temperature_sensor.h>
 #include <driver/uart.h>
 #include <esp_log.h>
 #include <time.h>
@@ -30,6 +31,15 @@ static time_t gps_to_unix_time(lwgps_t* gps) {
     return mktime(&timeinfo);
 }
 
+static uint32_t map_coords_to_pkt(lwgps_float_t x, ssize_t in_min,
+                                  ssize_t in_max, size_t out_min,
+                                  size_t out_max) {
+    const size_t run = in_max - in_min;
+    const size_t rise = out_max - out_min;
+    const lwgps_float_t delta = x - in_min;
+    return (delta * rise) / run + out_min;
+}
+
 void gps_task(void* pvParameters) {
     ESP_LOGI(TAG, "Initialising...");
 
@@ -43,8 +53,10 @@ void gps_task(void* pvParameters) {
     };
     ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_config(&conf));
 
-    ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_RST, 0));
-    ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_WAKE, 1));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(
+        gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_RST, 0));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(
+        gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_WAKE, 1));
 
     uart_config_t uart_config = {
         .baud_rate = GPS_BAUDRATE,
@@ -68,12 +80,23 @@ void gps_task(void* pvParameters) {
     //                              SOC_GPIO_PIN_GNSS_TX, -1, -1));
 
     // Trigger on newlines, which is the end of a NMEA message
-    ESP_ERROR_CHECK(uart_enable_pattern_det_baud_intr(UART_NUM_0, '\n', 1, 9, 0, 0));
+    ESP_ERROR_CHECK(
+        uart_enable_pattern_det_baud_intr(UART_NUM_0, '\n', 1, 9, 0, 0));
     ESP_ERROR_CHECK(uart_pattern_queue_reset(UART_NUM_0, NMEA_MAX_LENGTH));
 
     lwgps_init(&hgps);
 
-    ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_RST, 1));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(
+        gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_RST, 1));
+
+    ESP_LOGI(TAG, "Configuring temperature sensor...");
+    temperature_sensor_handle_t temp_sensor = NULL;
+    temperature_sensor_config_t temp_sensor_config =
+        TEMPERATURE_SENSOR_CONFIG_DEFAULT(0, 63);
+    ESP_ERROR_CHECK_WITHOUT_ABORT(
+        temperature_sensor_install(&temp_sensor_config, &temp_sensor));
+    if (temp_sensor != NULL)
+        ESP_ERROR_CHECK_WITHOUT_ABORT(temperature_sensor_enable(temp_sensor));
 
     lwgps_float_t last_latitude = 0.0;
     lwgps_float_t last_longitude = 0.0;
@@ -128,22 +151,35 @@ void gps_task(void* pvParameters) {
             continue;
         }
 
-        ESP_LOGI(TAG, "latitude: %f", hgps.latitude);
-        ESP_LOGI(TAG, "longitude: %f", hgps.longitude);
-        ESP_LOGI(TAG, "altitude: %f", hgps.altitude);
-        ESP_LOGI(TAG, "course: %f", hgps.course);
-        ESP_LOGI(TAG, "speed: %f", hgps.speed);
-        ESP_LOGI(TAG, "sats in use: %d", hgps.sats_in_use);
-        ESP_LOGI(TAG, "hdop: %f", hgps.dop_h);
+        uint_fast8_t pkt_temp_value;
+        float temp_value;
+        if (temp_sensor != NULL && temperature_sensor_get_celsius(
+                                       temp_sensor, &temp_value) == ESP_OK) {
+            pkt_temp_value = (uint_fast8_t)(temp_value) >> 1;
+            ESP_LOGI(TAG, "Temperature: %f °C", temp_value);
+        } else {
+            pkt_temp_value = 0;
+            ESP_LOGW(TAG, "Failed to read temperature sensor");
+        }
+
+        ESP_LOGI(TAG, "Latitude: %f", hgps.latitude);
+        ESP_LOGI(TAG, "Longitude: %f", hgps.longitude);
+        ESP_LOGI(TAG, "Altitude: %f", hgps.altitude);
+        ESP_LOGI(TAG, "Course: %f", hgps.course);
+        ESP_LOGI(TAG, "Speed: %f", hgps.speed);
+        ESP_LOGI(TAG, "Sats in use: %d", hgps.sats_in_use);
+        ESP_LOGI(TAG, "HDOP: %f", hgps.dop_h);
 
         struct packet pkt = {
             .timestamp = (uint32_t)gps_to_unix_time(&hgps),
-            .latitude = (int32_t)(hgps.latitude * 10000),
-            .longitude = (int32_t)(hgps.longitude * 10000),
+            .temperature = pkt_temp_value,
+            .latitude = map_coords_to_pkt(hgps.latitude, -90, 90, LATITUDE_MIN,
+                                          LATITUDE_MAX),
+            .longitude = map_coords_to_pkt(hgps.longitude, -180, 180,
+                                           LONGITUDE_MIN, LONGITUDE_MAX),
             .altitude = (int16_t)hgps.altitude,
-            .course = (uint16_t)(hgps.course),
-            .speed =
-                (uint16_t)(lwgps_to_speed(hgps.speed, LWGPS_SPEED_KPH) * 10),
+            .course = (uint16_t)hgps.course,
+            .speed = (uint16_t)lwgps_to_speed(hgps.speed, LWGPS_SPEED_KPH) * 10,
             .sats_in_use = hgps.sats_in_use > 15 ? 15 : hgps.sats_in_use,
             .hdop = hgps.dop_h < 25.5 ? (uint8_t)(hgps.dop_h * 10) : 255};
 
@@ -166,6 +202,7 @@ void gps_task(void* pvParameters) {
             } else {
                 ESP_LOGI(TAG, "Packet sent to front of queue");
             }
+            skip_count = 0;
         } else {
             if (xQueueSendToBack(packet_queue, &pkt, pdMS_TO_TICKS(100)) !=
                 pdTRUE) {
@@ -176,6 +213,7 @@ void gps_task(void* pvParameters) {
             skip_count++;
         }
 
+        last_queue_time = currentTicks;
         last_latitude = hgps.latitude;
         last_longitude = hgps.longitude;
     }
