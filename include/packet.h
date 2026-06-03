@@ -1,3 +1,5 @@
+#pragma once
+
 #include <freertos/queue.h>
 #include <stdint.h>
 
