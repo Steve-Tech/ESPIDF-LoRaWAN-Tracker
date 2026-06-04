@@ -7,6 +7,7 @@
 #include <lwgps/lwgps.h>
 
 #include "board_config.h"
+#include "macros.h"
 #include "packet.h"
 
 static const char* TAG = "gps";
@@ -170,18 +171,31 @@ void gps_task(void* pvParameters) {
         ESP_LOGI(TAG, "Sats in use: %d", hgps.sats_in_use);
         ESP_LOGI(TAG, "HDOP: %f", hgps.dop_h);
 
+        uint16_t pkt_speed_value =
+            (uint16_t)(lwgps_to_speed(hgps.speed, LWGPS_SPEED_KPH) * 10);
+
         struct packet pkt = {
             .timestamp = (uint32_t)gps_to_unix_time(&hgps),
+
             .temperature = pkt_temp_value,
+
             .latitude = map_coords_to_pkt(hgps.latitude, -90, 90, LATITUDE_MIN,
                                           LATITUDE_MAX),
+
             .longitude = map_coords_to_pkt(hgps.longitude, -180, 180,
                                            LONGITUDE_MIN, LONGITUDE_MAX),
-            .altitude = (int16_t)hgps.altitude,
+
+            .altitude =
+                CONSTRAIN((int16_t)hgps.altitude, ALTITUDE_MIN, ALTITUDE_MAX) -
+                ALTITUDE_MIN,
+
             .course = (uint16_t)hgps.course,
-            .speed = (uint16_t)lwgps_to_speed(hgps.speed, LWGPS_SPEED_KPH) * 10,
-            .sats_in_use = hgps.sats_in_use > 15 ? 15 : hgps.sats_in_use,
-            .hdop = hgps.dop_h < 25.5 ? (uint8_t)(hgps.dop_h * 10) : 255};
+
+            .speed = MIN(pkt_speed_value, 2047),
+
+            .sats_in_use = MIN(hgps.sats_in_use, 15),
+
+            .hdop = MIN((uint8_t)(hgps.dop_h * 10), 255)};
 
         if (skip_count <= MAX_SKIP_COUNT) {
             if (!lwgps_distance_bearing(last_latitude, last_longitude,

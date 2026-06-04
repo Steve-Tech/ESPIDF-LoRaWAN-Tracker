@@ -4,9 +4,11 @@
 #include <stdint.h>
 
 #define LATITUDE_MIN 0
-#define LATITUDE_MAX ((1 << 21) - 1)
+#define LATITUDE_MAX ((1 << 22) - 1)
 #define LONGITUDE_MIN 0
-#define LONGITUDE_MAX ((1 << 22) - 1)
+#define LONGITUDE_MAX ((1 << 23) - 1)
+#define ALTITUDE_MIN -1024
+#define ALTITUDE_MAX (((1 << 14) - 1) + ALTITUDE_MIN)
 
 struct packet {
     // seconds
@@ -17,15 +19,13 @@ struct packet {
     uint8_t temperature : 5;
 
     // -90-90 mapped to LATITUDE_MIN-LATITUDE_MAX
-    uint32_t latitude : 21;
+    uint32_t latitude : 22;
 
     // -180-180 mapped to LONGITUDE_MIN-LONGITUDE_MAX
-    uint32_t longitude : 22;
+    uint32_t longitude : 23;
 
-    // -- byte 10 --
-
-    // meters (-32768 to 32767)
-    int16_t altitude;
+    // meters ALTITUDE_MIN-ALTITUDE_MAX mapped to 0-16383
+    uint16_t altitude : 14;
 
     // -- byte 12 --
 
