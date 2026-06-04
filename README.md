@@ -5,7 +5,7 @@ This is a simple LoRaWAN tracker built around a Seeed Studio XIAO ESP32S3 & Wio-
 ## Hardware
 
 - [Seeed Studio XIAO ESP32S3 & Wio-SX1262 Kit](https://www.seeedstudio.com/Wio-SX1262-with-XIAO-ESP32S3-p-5982.html?sensecap_affiliate=WpDECrz&referring_service=github)
-  - The Wio-SX1262 should be attached via the B2B connector, otherwise the GPS module's pins may conflict.
+  - The Wio-SX1262 should be attached via the B2B connector, otherwise the GNSS module's pins may conflict.
 
 - [Seeed Studio L76K GNSS Module](https://www.seeedstudio.com/L76K-GNSS-Module-for-Seeed-Studio-XIAO-p-5864.html?sensecap_affiliate=WpDECrz&referring_service=github)
 
@@ -25,6 +25,7 @@ This is a simple LoRaWAN tracker built around a Seeed Studio XIAO ESP32S3 & Wio-
         "heading": 293,
         "latitude": -27.4689,
         "longitude": 153.0234,
+        "mode": "GPS",
         "sats": 9,
         "speed": 0,
         "temp1": 30,
