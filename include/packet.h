@@ -10,7 +10,7 @@
 #define ALTITUDE_MIN -1024
 #define ALTITUDE_MAX (((1 << 14) - 1) + ALTITUDE_MIN)
 
-struct packet {
+struct packet_payload {
     // seconds
     uint32_t timestamp;
 
@@ -44,6 +44,14 @@ struct packet {
     uint8_t hdop;
 
     // -- byte 16 --
+} __attribute__((packed));
+
+struct packet {
+    uint8_t port;
+    union {
+        struct packet_payload payload;
+        uint8_t payload_bytes[sizeof(struct packet_payload)];
+    };
 } __attribute__((packed));
 
 extern QueueHandle_t packet_queue;

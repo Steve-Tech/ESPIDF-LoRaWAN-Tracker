@@ -100,14 +100,14 @@ extern "C" void lorawan_task(void) {
         TickType_t ticksToWait =
             pdMS_TO_TICKS(uplinkIntervalMs) + additionalTicks;
 
-        uint8_t uplinkPayload[sizeof(struct packet)];
-        const size_t uplinkPayloadSize = sizeof(struct packet);
-        if (xQueueReceive(packet_queue, &uplinkPayload, ticksToWait) ==
-            pdTRUE) {
+        struct packet packet;
+        if (xQueueReceive(packet_queue, &packet, ticksToWait) == pdTRUE) {
             ESP_LOGI(TAG, "Sending uplink");
 
             // Perform an uplink
-            int16_t state = node.sendReceive(uplinkPayload, uplinkPayloadSize);
+            int16_t state =
+                node.sendReceive(packet.payload_bytes,
+                                 sizeof(packet.payload_bytes), packet.port);
             if (state < RADIOLIB_ERR_NONE) {
                 ESP_LOGI(TAG, "Error in sendReceive - (%d)\n", state);
             }

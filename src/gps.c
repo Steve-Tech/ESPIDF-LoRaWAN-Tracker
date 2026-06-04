@@ -175,27 +175,29 @@ void gps_task(void* pvParameters) {
             (uint16_t)(lwgps_to_speed(hgps.speed, LWGPS_SPEED_KPH) * 10);
 
         struct packet pkt = {
-            .timestamp = (uint32_t)gps_to_unix_time(&hgps),
+            .port = hgps.fix & 0x07,
+            .payload = {
+                .timestamp = (uint32_t)gps_to_unix_time(&hgps),
 
-            .temperature = pkt_temp_value,
+                .temperature = pkt_temp_value,
 
-            .latitude = map_coords_to_pkt(hgps.latitude, -90, 90, LATITUDE_MIN,
-                                          LATITUDE_MAX),
+                .latitude = map_coords_to_pkt(hgps.latitude, -90, 90,
+                                              LATITUDE_MIN, LATITUDE_MAX),
 
-            .longitude = map_coords_to_pkt(hgps.longitude, -180, 180,
-                                           LONGITUDE_MIN, LONGITUDE_MAX),
+                .longitude = map_coords_to_pkt(hgps.longitude, -180, 180,
+                                               LONGITUDE_MIN, LONGITUDE_MAX),
 
-            .altitude =
-                CONSTRAIN((int16_t)hgps.altitude, ALTITUDE_MIN, ALTITUDE_MAX) -
-                ALTITUDE_MIN,
+                .altitude = CONSTRAIN((int16_t)hgps.altitude, ALTITUDE_MIN,
+                                      ALTITUDE_MAX) -
+                            ALTITUDE_MIN,
 
-            .course = (uint16_t)hgps.course,
+                .course = (uint16_t)hgps.course,
 
-            .speed = MIN(pkt_speed_value, 2047),
+                .speed = MIN(pkt_speed_value, 2047),
 
-            .sats_in_use = MIN(hgps.sats_in_use, 15),
+                .sats_in_use = MIN(hgps.sats_in_use, 15),
 
-            .hdop = MIN((uint8_t)(hgps.dop_h * 10), 255)};
+                .hdop = MIN((uint8_t)(hgps.dop_h * 10), 255)}};
 
         if (skip_count <= MAX_SKIP_COUNT) {
             if (!lwgps_distance_bearing(last_latitude, last_longitude,

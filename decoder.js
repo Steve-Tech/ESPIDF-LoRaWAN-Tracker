@@ -4,6 +4,12 @@ const LONGITUDE_MIN = 0;
 const LONGITUDE_MAX = (1 << 23) - 1;
 const ALTITUDE_MIN = -1024;
 
+const PORTS = {
+    1: "GPS",
+    2: "DGPS",
+    6: "Dead reckoning",
+}
+
 function map(value, in_min, in_max, out_min, out_max) {
     const run = in_max - in_min;
     const rise = out_max - out_min;
@@ -12,8 +18,19 @@ function map(value, in_min, in_max, out_min, out_max) {
 }
 
 function decodeUplink(input) {
-    let i = 0;
     let data = {};
+    let warnings = [];
+    let errors = [];
+
+    if (input.fPort in PORTS) {
+        data.mode = PORTS[input.fPort];
+    } else {
+        data.mode = "Unknown";
+        warnings.push(`Unknown port: ${input.fPort}`);
+    }
+
+    let i = 0;
+
     data.time = input.bytes[i++] | input.bytes[i++] << 8 | input.bytes[i++] << 16 | input.bytes[i++] << 24;
     data.time = new Date(data.time * 1000).toISOString();
 
@@ -32,9 +49,5 @@ function decodeUplink(input) {
     data.sats = input.bytes[i++] >> 4;
     data.hdop = input.bytes[i] / 10;
 
-    return {
-        data: data,
-        warnings: [],
-        errors: []
-    };
+    return { data, warnings, errors };
 }
