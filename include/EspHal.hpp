@@ -91,7 +91,12 @@ class EspHal : public RadioLibHal {
             return;
         }
 
-        gpio_install_isr_service((int)ESP_INTR_FLAG_IRAM);
+        if (!interrupt_installed) {
+            esp_err_t ret = gpio_install_isr_service((int)ESP_INTR_FLAG_IRAM);
+            // Returns ESP_ERR_INVALID_STATE if the service is already installed
+            interrupt_installed = ret == ESP_OK || ret == ESP_ERR_INVALID_STATE;
+        }
+
         gpio_set_intr_type((gpio_num_t)interruptNum,
                            (gpio_int_type_t)(mode & 0x7));
 
@@ -214,6 +219,7 @@ class EspHal : public RadioLibHal {
     int8_t spiMISO;
     int8_t spiMOSI;
     spi_device_handle_t spi_device_handle;
+    bool interrupt_installed = false;
 };
 
 #endif

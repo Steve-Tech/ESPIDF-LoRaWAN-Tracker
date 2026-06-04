@@ -175,7 +175,8 @@ void gps_task(void* pvParameters) {
             (uint16_t)(lwgps_to_speed(hgps.speed, LWGPS_SPEED_KPH) * 10);
 
         struct packet pkt = {
-            .port = hgps.fix & 0x07,
+            // Use the port for fix type, should never be 0
+            .port = MIN(hgps.fix & 0x07, 1),
             .payload = {
                 .timestamp = (uint32_t)gps_to_unix_time(&hgps),
 
