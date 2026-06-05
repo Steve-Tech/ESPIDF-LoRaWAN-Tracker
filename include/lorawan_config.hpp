@@ -6,11 +6,11 @@
 #include "board_config.h"
 
 // create a new instance of the HAL class
-EspHal* hal = new EspHal(SOC_GPIO_PIN_SCK, SOC_GPIO_PIN_MISO, SOC_GPIO_PIN_MOSI);
+EspHal* hal = new EspHal(LORA_SCK, LORA_MISO, LORA_MOSI);
 
 // first you have to set your radio model and pin configuration
 // this is provided just as a default example
-SX1262 radio = new Module(hal, SOC_GPIO_PIN_SS, SOC_GPIO_PIN_DIO1, SOC_GPIO_PIN_RST, SOC_GPIO_PIN_BUSY);
+SX1262 radio = new Module(hal, SX126X_CS, SX126X_DIO1, SX126X_RESET, SX126X_BUSY);
 
 // how often to send an uplink - consider legal & FUP constraints - see notes
 const uint32_t uplinkIntervalSeconds = 1UL * 60UL;    // minutes x seconds
@@ -52,6 +52,6 @@ uint8_t nwkKey[] = { RADIOLIB_LORAWAN_NWK_KEY };
 // create the LoRaWAN node
 LoRaWANNode node(&radio, &Region, subBand);
 
-const uint32_t activity_pins[4] = {SOC_GPIO_PIN_LED1, SOC_GPIO_PIN_LED2, RADIOLIB_NC, RADIOLIB_NC};
+const uint32_t activity_pins[4] = {BOARD_LED, SX126X_LED, RADIOLIB_NC, RADIOLIB_NC};
 
 #endif

@@ -47,8 +47,7 @@ void gps_task(void* pvParameters) {
     ESP_LOGI(TAG, "Initialising...");
 
     gpio_config_t conf = {
-        .pin_bit_mask =
-            (1ULL << SOC_GPIO_PIN_GNSS_RST) | (1ULL << SOC_GPIO_PIN_GNSS_WAKE),
+        .pin_bit_mask = (1ULL << GPS_RESET_PIN) | (1ULL << GPS_WAKE_PIN),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -56,10 +55,8 @@ void gps_task(void* pvParameters) {
     };
     ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_config(&conf));
 
-    ESP_ERROR_CHECK_WITHOUT_ABORT(
-        gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_RST, 0));
-    ESP_ERROR_CHECK_WITHOUT_ABORT(
-        gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_WAKE, 1));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_set_level((gpio_num_t)GPS_RESET_PIN, 0));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_set_level((gpio_num_t)GPS_WAKE_PIN, 1));
 
     uart_config_t uart_config = {
         .baud_rate = GPS_BAUDRATE,
@@ -79,8 +76,8 @@ void gps_task(void* pvParameters) {
                                         &uart0_queue, 0));
     ESP_ERROR_CHECK(uart0_queue == NULL ? ESP_FAIL : ESP_OK);
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &uart_config));
-    // ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, SOC_GPIO_PIN_GNSS_RX,
-    //                              SOC_GPIO_PIN_GNSS_TX, -1, -1));
+    // ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, GPS_RX_PIN,
+    //                              GPS_TX_PIN, -1, -1));
 
     // Trigger on newlines, which is the end of a NMEA message
     ESP_ERROR_CHECK(
@@ -89,8 +86,7 @@ void gps_task(void* pvParameters) {
 
     lwgps_init(&hgps);
 
-    ESP_ERROR_CHECK_WITHOUT_ABORT(
-        gpio_set_level((gpio_num_t)SOC_GPIO_PIN_GNSS_RST, 1));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_set_level((gpio_num_t)GPS_RESET_PIN, 1));
 
     ESP_LOGI(TAG, "Configuring temperature sensor...");
     temperature_sensor_handle_t temp_sensor = NULL;

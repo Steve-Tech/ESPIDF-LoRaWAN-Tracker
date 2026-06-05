@@ -1,27 +1,26 @@
 #pragma once
 
-#include "board_pins.h"
+/* Derived from https://github.com/meshtastic/firmware/blob/v2.7.20.6658ec2/variants/esp32s3/seeed_xiao_s3/variant.h */
 
-#define SOC_GPIO_PIN_LED1       21
+#define BOARD_LED 21
 
-#define SOC_GPIO_PIN_GNSS_RST   D2
-#define SOC_GPIO_PIN_GNSS_WAKE  D0
-#define SOC_GPIO_PIN_GNSS_RX    D6
-#define SOC_GPIO_PIN_GNSS_TX    D7
+#define GPS_RESET_PIN 3
+#define GPS_WAKE_PIN 1
+#define GPS_RX_PIN 43
+#define GPS_TX_PIN 44
+#define GPS_BAUDRATE 9600
 
 /* SPI2 */
-#define SOC_GPIO_PIN_MOSI       D10
-#define SOC_GPIO_PIN_MISO       D9
-#define SOC_GPIO_PIN_SCK        D8
+#define LORA_MOSI 9
+#define LORA_MISO 8
+#define LORA_SCK 7
 
 /* SX1262 */
-// Source: https://github.com/Seeed-Studio/one_channel_hub/blob/735bb8e9efca9092c9580eeaff2d8678c509e5d5/components/smtc_ral/bsp/sx126x/seeed_xiao_esp32s3_devkit_sx1262.c
-#define SOC_GPIO_PIN_SS         41
-#define SOC_GPIO_PIN_RST        42
-#define SOC_GPIO_PIN_DIO1       39
-#define SOC_GPIO_PIN_BUSY       40
-/* RF antenna switch */
-#define SOC_GPIO_PIN_ANT_RXTX   38 // Tx = HIGH, Rx = LOW
-#define SOC_GPIO_PIN_LED2       48
-
-#define GPS_BAUDRATE            9600
+#define SX126X_CS 41
+#define SX126X_DIO1 39
+#define SX126X_BUSY 40
+#define SX126X_RESET 42
+#define SX126X_RXEN 38
+#define SX126X_TXEN RADIOLIB_NC
+#define SX126X_DIO3_TCXO_VOLTAGE 1.8
+#define SX126X_LED 48

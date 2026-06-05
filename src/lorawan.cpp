@@ -42,7 +42,7 @@ extern "C" void lorawan_task(void) {
     persistence_init();
 
     ConfigLoRa_t config;
-    config.frequency = 915;
+    config.frequency = Region.freqMin / 10'000;
     int state = radio.begin(config);
     if (state != RADIOLIB_ERR_NONE) {
         ESP_LOGE(TAG, "failed, code %d\n", state);
@@ -50,7 +50,9 @@ extern "C" void lorawan_task(void) {
     }
     ESP_LOGI(TAG, "success!\n");
 
-    radio.setRfSwitchPins(RADIOLIB_NC, SOC_GPIO_PIN_ANT_RXTX);
+    radio.setDio2AsRfSwitch(true);
+    radio.setRfSwitchPins(SX126X_RXEN, SX126X_TXEN);
+    radio.setTCXO(SX126X_DIO3_TCXO_VOLTAGE);
 
     node.setActivityLeds(activity_pins);
 
@@ -65,6 +67,8 @@ extern "C" void lorawan_task(void) {
 
     // Update dwell time limits - 400ms is the limit for the US
     // node.setDwellTime(true, 400); // Not needed for AU
+
+    node.setTxPower(Region.powerMax);
 
     // Externally powered
     node.setDeviceStatus(0);
