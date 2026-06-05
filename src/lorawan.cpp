@@ -18,7 +18,10 @@
 
 #include "EspHal.hpp"
 #include "lorawan_config.hpp"
+extern "C" {
 #include "packet.h"
+#include "persistence.h"
+}
 
 static const char* TAG = "lorawan";
 
@@ -35,6 +38,8 @@ extern "C" void lorawan_task(void) {
         ESP_LOGE(TAG, "Failed to create packet queue");
         abort();
     }
+
+    persistence_init();
 
     ConfigLoRa_t config;
     config.frequency = 915;
@@ -66,11 +71,33 @@ extern "C" void lorawan_task(void) {
 
     node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
 
+    persistence_open("radiolib");
+    if (persistence_has_key("nonces")) {
+        uint8_t buffer[RADIOLIB_LORAWAN_NONCES_BUF_SIZE];
+        persistence_get_val("nonces", buffer, RADIOLIB_LORAWAN_NONCES_BUF_SIZE);
+        if (node.setBufferNonces(buffer) == RADIOLIB_ERR_NONE) {
+            ESP_LOGI(TAG, "Restored nonces from persistent storage");
+        } else {
+            ESP_LOGW(TAG, "Failed to restore nonces from persistent storage");
+        }
+    } else {
+        ESP_LOGI(TAG, "No nonces found in persistent storage");
+    }
+    persistence_close();
+
     // loop forever
     for (;;) {
         if (!node.isActivated()) {
             ESP_LOGI(TAG, "Not joined to a network yet...");
             state = node.activateOTAA();
+
+            // Save the nonces to persistent storage
+            persistence_open("radiolib");
+            uint8_t* nonces_buffer = node.getBufferNonces();
+            persistence_set_val("nonces", nonces_buffer,
+                                RADIOLIB_LORAWAN_NONCES_BUF_SIZE);
+            persistence_close();
+
             if (state != RADIOLIB_LORAWAN_NEW_SESSION) {
                 ESP_LOGI(TAG, "Join failed - (%d)\n", state);
                 vTaskDelay(pdMS_TO_TICKS(uplinkIntervalMs));
@@ -92,10 +119,11 @@ extern "C" void lorawan_task(void) {
         TickType_t currentTicks = xTaskGetTickCount();
         // Add an extra minute every hour
         TickType_t additionalTicks =
-            (currentTicks / pdMS_TO_TICKS(3600'000)) * pdMS_TO_TICKS(60'000);
+            (currentTicks / pdMS_TO_TICKS(3600'000UL)) *
+            pdMS_TO_TICKS(60'000UL);
         // Cap at 8 minutes
-        if (additionalTicks > pdMS_TO_TICKS(8 * 60'000)) {
-            additionalTicks = pdMS_TO_TICKS(8 * 60'000);
+        if (additionalTicks > pdMS_TO_TICKS(8 * 60'000UL)) {
+            additionalTicks = pdMS_TO_TICKS(8 * 60'000UL);
         }
         TickType_t ticksToWait =
             pdMS_TO_TICKS(uplinkIntervalMs) + additionalTicks;
