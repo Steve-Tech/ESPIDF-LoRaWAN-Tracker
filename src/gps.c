@@ -1,12 +1,14 @@
 #include <driver/gpio.h>
 #include <driver/temperature_sensor.h>
 #include <driver/uart.h>
+#include <esp_err.h>
 #include <esp_log.h>
 #include <time.h>
 
 #include <lwgps/lwgps.h>
 
 #include "board_config.h"
+#include "gps_pcas.h"
 #include "macros.h"
 #include "packet.h"
 
@@ -105,10 +107,18 @@ void gps_task(void* pvParameters) {
     size_t skip_count = SIZE_MAX;
     TickType_t last_queue_time = 0;
 
+    ESP_LOGI(TAG, "Waiting for GPS");
+
+    uart_event_t event;
+    // Wait for the GPS to start sending data
+    xQueuePeek(uart0_queue, &event, portMAX_DELAY);
+
+    // Disable the messages we don't need
+    uart_write_bytes(UART_NUM_0, pcas03, pcas03_len);
+
     ESP_LOGI(TAG, "Ready");
 
     for (;;) {
-        uart_event_t event;
         if (xQueueReceive(uart0_queue, &event, portMAX_DELAY) == pdFALSE) {
             ESP_LOGW(TAG, "Failed to receive UART event");
             continue;
